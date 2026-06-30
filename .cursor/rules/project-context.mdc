@@ -1,0 +1,86 @@
+---
+description: AI DSA Mentor project vision, stack, migration goal, and agent constraints
+alwaysApply: true
+---
+
+# AI DSA Mentor Project Context
+
+You are working on an **existing** Next.js application. Do not rewrite it.
+
+## Stack
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- Clerk authentication
+- Zustand state management (current — being migrated away from)
+- PostgreSQL
+- Prisma ORM
+
+## Current State
+
+Pages that exist today:
+
+- Dashboard (`/`)
+- Roadmap (`/roadmap`)
+- Problems (`/problems`)
+- Notes (`/notes`)
+- Analytics (`/analytics`)
+- Profile (`/profile`)
+- Settings (`/settings`)
+- Mentor (`/mentor`) — **uses fake local chat only**
+
+Data today lives in Zustand with `persist` (localStorage). Clerk handles auth but learning data is not yet tied to the signed-in user in the database.
+
+## Current Migration Goal
+
+Move incrementally from Zustand persisted local storage to:
+
+```
+Clerk user
+    |
+Next.js backend (Route Handlers / server actions)
+    |
+Prisma ORM
+    |
+PostgreSQL
+```
+
+Migrate one domain at a time (e.g. profile → problems → notes). Keep the UI working at each step.
+
+## Important Rules
+
+- **Do not rewrite the application**
+- **Preserve existing UI** — same layout, styling, and UX unless explicitly asked to change
+- **Make incremental changes** — small, reviewable diffs
+- **Follow the docs folder as source of truth** — `Source Files/Documentation/` (especially `Master_Blueprint.md`, `Database Design.md`, `System Design.md`, `API design.md`)
+- **Before coding, explain the implementation plan**
+- **Ask before making large architectural changes**
+
+## Product Rules (from Master Blueprint)
+
+1. Never recommend already-solved questions
+2. AI must respect the user's current learning plan
+3. Persist all important user actions
+4. Progress must survive logout
+5. Keep features modular; avoid unnecessary complexity
+
+## Repository Layout
+
+```
+Source Files/              ← Active Next.js app (run npm commands here)
+  src/app/                 ← App Router pages
+  src/components/          ← Shared UI (e.g. AppShell)
+  src/lib/                 ← types, stores, data access
+  Documentation/           ← Canonical design docs
+```
+
+**Working directory:** `Source Files/` — not the nested `Source Files/Source Files/` folder.
+
+## Coding Conventions
+
+- Functional React components; `"use client"` only where needed
+- Types in `src/lib/types.ts`
+- Match existing Tailwind patterns (dark bg `#09111f`, cards `#101a2d`, indigo accents)
+- Frontend must not access the database directly — use Next.js API routes/server actions + Prisma
+- Minimize scope; do not add tests or docs unless requested
