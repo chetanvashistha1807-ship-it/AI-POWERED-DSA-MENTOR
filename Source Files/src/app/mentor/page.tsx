@@ -1,7 +1,6 @@
 "use client";
 
 import { AppShell } from "@/components/AppShell";
-import { useLearningStore } from "@/lib/use-learning-store";
 import { Bot, Send, User } from "lucide-react";
 import { useState } from "react";
 
@@ -10,67 +9,77 @@ type Message = {
   content: string;
 };
 
-function buildMentorReply(input: string, weakTopics: string[]) {
-  const lowerInput = input.toLowerCase();
-
-  if (lowerInput.includes("hint")) {
-    return "Start by identifying what changes after each step. I will not give the full solution yet. Try defining the state of the problem and what makes a move valid.";
-  }
-
-  if (lowerInput.includes("sliding")) {
-    return "For Sliding Window, keep one rule in mind: expand the right side to explore, shrink the left side when the window becomes invalid. The hard part is defining 'invalid' for the problem.";
-  }
-
-  if (lowerInput.includes("dp") || lowerInput.includes("dynamic")) {
-    return "For DP, ask three questions: what is the state, what is the transition, and what is the base case? If you cannot define the state clearly, do not write code yet.";
-  }
-
-  if (lowerInput.includes("graph")) {
-    return "For Graphs, first decide traversal type: BFS for shortest steps in unweighted graphs, DFS for exploring connected structure. Always track visited nodes carefully.";
-  }
-
-  if (weakTopics.length > 0) {
-    return `Based on your current progress, I would focus on ${weakTopics[0]} next. Try one easy/medium problem, then write a note about the mistake you made.`;
-  }
-
-  return "Tell me the topic, your current approach, and where you are stuck. I will guide you with hints before giving a full solution.";
-}
-
 export default function MentorPage() {
-  const { problems } = useLearningStore();
-
-  const weakTopics = Array.from(
-    new Set(
-      problems
-        .filter((problem) => problem.status !== "Solved")
-        .map((problem) => problem.topic)
-    )
-  );
-
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "mentor",
       content:
-        "I am ready. Ask me for a hint, dry run, concept explanation, or debugging help."
+        "I am ready. Ask me for a hint, dry run, concept explanation, debugging help, or what to study next."
     }
   ]);
 
-  function handleSend() {
-    if (!input.trim()) return;
+  async function handleSend() {
+    if (!input.trim() || isSending) return;
 
-    const userMessage: Message = {
-      role: "user",
-      content: input
-    };
+    const userText = input;
 
-    const mentorMessage: Message = {
-      role: "mentor",
-      content: buildMentorReply(input, weakTopics)
-    };
+    setMessages((current) => [
+      ...current,
+      {
+        role: "user",
+        content: userText
+      }
+    ]);
 
-    setMessages((current) => [...current, userMessage, mentorMessage]);
     setInput("");
+    setIsSending(true);
+
+    try {
+      const response = await fetch("/api/mentor", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: userText
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+
+        throw new Error(
+          errorData?.details ||
+            errorData?.error ||
+            "Failed to get mentor response"
+        );
+      }
+
+      const data = await response.json();
+
+      setMessages((current) => [
+        ...current,
+        {
+          role: "mentor",
+          content: data.reply
+        }
+      ]);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown mentor error";
+
+      setMessages((current) => [
+        ...current,
+        {
+          role: "mentor",
+          content: `I could not reach the AI service.\n\n${errorMessage}`
+        }
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   }
 
   return (
@@ -79,7 +88,7 @@ export default function MentorPage() {
         <p className="text-sm text-indigo-300">AI Mentor</p>
         <h2 className="mt-1 text-3xl font-bold">Ask for hints, not spoilers</h2>
         <p className="mt-2 text-sm text-slate-400">
-          This is a local mentor simulation. Later we will connect it to the real OpenAI API.
+          The mentor uses your database-backed profile, problems, and notes as context.
         </p>
       </header>
 
@@ -90,7 +99,9 @@ export default function MentorPage() {
 
             return (
               <div
-                className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}
+                className={`flex gap-3 ${
+                  isUser ? "justify-end" : "justify-start"
+                }`}
                 key={`${message.role}-${index}`}
               >
                 {!isUser && (
@@ -100,7 +111,7 @@ export default function MentorPage() {
                 )}
 
                 <div
-                  className={`max-w-2xl rounded-lg p-4 text-sm leading-6 ${
+                  className={`max-w-2xl whitespace-pre-wrap rounded-lg p-4 text-sm leading-6 ${
                     isUser
                       ? "bg-indigo-600 text-white"
                       : "bg-slate-900 text-slate-300"
@@ -117,6 +128,10 @@ export default function MentorPage() {
               </div>
             );
           })}
+
+          {isSending ? (
+            <p className="text-sm text-slate-400">Mentor is thinking...</p>
+          ) : null}
         </div>
 
         <div className="mt-6 flex gap-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
@@ -133,7 +148,8 @@ export default function MentorPage() {
           />
 
           <button
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSending}
             onClick={handleSend}
           >
             <Send size={16} />

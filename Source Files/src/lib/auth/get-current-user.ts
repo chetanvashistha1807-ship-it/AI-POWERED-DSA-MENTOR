@@ -1,27 +1,34 @@
-import { auth } from "@clerk/nextjs/server";
-
+import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-export async function getCurrentUser() {
-  const { userId: clerkId } = await auth();
+export async function getCurrentUserProfile() {
+  const clerkUser = await currentUser();
 
-  if (!clerkId) {
+  if (!clerkUser) {
     return null;
   }
 
-  return prisma.user.upsert({
-    where: { clerkId },
-    create: { clerkId },
-    update: {}
+  const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+  const name =
+    clerkUser.firstName ||
+    clerkUser.fullName ||
+    email ||
+    "DSA Learner";
+
+  return prisma.userProfile.upsert({
+    where: {
+      clerkUserId: clerkUser.id
+    },
+    update: {
+      name
+    },
+    create: {
+      clerkUserId: clerkUser.id,
+      name,
+      goal: "Placement preparation",
+      skillLevel: "Beginner",
+      dailyGoal: "3 problems",
+      preferredLanguage: "C++ / Java / Python"
+    }
   });
-}
-
-export async function requireCurrentUser() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
-
-  return user;
 }

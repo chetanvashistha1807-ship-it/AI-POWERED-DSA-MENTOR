@@ -1,0 +1,464 @@
+# AI DSA Mentor
+
+# System Design Document
+
+**Version:** 1.0
+
+**Status:** Draft
+
+**Last Updated:** 30 June 2026
+
+---
+
+# 1. Purpose
+
+This document defines the overall architecture of AI DSA Mentor.
+
+It serves as the technical blueprint for the application and describes how each major component interacts with the others.
+
+The goal is to establish a modular, maintainable, and scalable architecture before implementation begins.
+
+This document intentionally focuses on system-level design rather than implementation details.
+
+---
+
+# 2. High-Level Architecture
+
+The application follows a three-tier architecture with AI integrated as an external service.
+
+```
+                    Browser
+                        │
+                        │
+                React Frontend
+                        │
+                  REST API
+                        │
+              Node.js Backend
+      ┌──────────┼───────────┐
+      │          │           │
+ PostgreSQL    OpenAI      Clerk
+ Database       API     Authentication
+```
+
+The frontend communicates only with the backend.
+
+The backend contains all business logic.
+
+The database stores permanent application data.
+
+The AI model never communicates directly with the database.
+
+---
+
+# 3. Architecture Principles
+
+The entire application follows these principles.
+
+## 3.1 Modular Design
+
+Every feature should exist as an independent module.
+
+Examples:
+
+- Authentication
+- Dashboard
+- Learning Plans
+- AI Mentor
+- Notes
+- Progress
+- Questions
+
+Modules should communicate through services rather than directly accessing each other's internals.
+
+---
+
+## 3.2 API First
+
+The frontend never accesses the database directly.
+
+Every operation must go through the backend API.
+
+This keeps business logic centralized.
+
+---
+
+## 3.3 Stateless Backend
+
+The backend should not maintain user session data in memory.
+
+Each request should contain enough information to be processed independently.
+
+Persistent information belongs in the database.
+
+---
+
+## 3.4 Separation of Responsibilities
+
+Frontend
+
+Responsible for presentation.
+
+Backend
+
+Responsible for business logic.
+
+Database
+
+Responsible for persistence.
+
+AI
+
+Responsible only for generating responses.
+
+---
+
+## 3.5 Simplicity First
+
+The MVP should prioritize maintainability over scalability.
+
+Avoid introducing additional services unless there is a clear benefit.
+
+---
+
+# 4. Core Components
+
+---
+
+## Frontend
+
+Responsibilities
+
+- Authentication UI
+- Dashboard
+- Learning Plans
+- Question Pages
+- Notes
+- AI Chat
+- Progress Dashboard
+- User Settings
+
+The frontend should contain minimal business logic.
+
+Its primary responsibility is rendering data received from the backend.
+
+---
+
+## Backend
+
+Responsibilities
+
+- User management
+- Authentication validation
+- CRUD operations
+- Progress calculations
+- AI prompt generation
+- Learning plan management
+- Recommendation engine
+- Analytics
+
+The backend is the central brain of the application.
+
+---
+
+## Database
+
+Responsibilities
+
+Store all permanent information.
+
+Examples include:
+
+- Users
+- Learning Plans
+- Questions
+- Progress
+- Notes
+- AI Conversations
+- Revisions
+- Settings
+
+No application logic belongs inside the database.
+
+---
+
+## AI Service
+
+Responsibilities
+
+- Generate learning plans
+- Explain concepts
+- Provide hints
+- Debug code
+- Analyze solutions
+- Recommend questions
+- Explain algorithms
+
+The AI receives only the context prepared by the backend.
+
+It should never query the database directly.
+
+---
+
+# 5. Request Flow
+
+## Normal Request
+
+```
+User
+
+↓
+
+Frontend
+
+↓
+
+Backend
+
+↓
+
+Database
+
+↓
+
+Backend
+
+↓
+
+Frontend
+
+↓
+
+User
+```
+
+Example
+
+User opens dashboard.
+
+Frontend requests dashboard data.
+
+Backend gathers information from the database.
+
+Backend returns a dashboard response.
+
+Frontend renders the page.
+
+---
+
+## AI Request
+
+```
+User
+
+↓
+
+Frontend
+
+↓
+
+Backend
+
+↓
+
+Collect User Context
+
+↓
+
+Build Prompt
+
+↓
+
+OpenAI API
+
+↓
+
+Receive Response
+
+↓
+
+Save Conversation
+
+↓
+
+Return Response
+
+↓
+
+Frontend
+```
+
+This ensures the AI always receives personalized context.
+
+---
+
+# 6. Proposed Technology Stack
+
+| Layer | Technology |
+|--------|------------|
+| Frontend | React + Vite |
+| Styling | Tailwind CSS |
+| Backend | Node.js |
+| Framework | Express |
+| Database | PostgreSQL |
+| ORM | Prisma |
+| Authentication | Clerk |
+| AI | OpenAI API |
+| State Management | Zustand |
+| Deployment | Vercel + Railway |
+
+---
+
+# 7. Application Modules
+
+The MVP consists of the following modules.
+
+## Authentication
+
+User registration
+
+Login
+
+Logout
+
+Session management
+
+---
+
+## Dashboard
+
+Displays
+
+- Current roadmap
+- Progress
+- Daily goals
+- Continue learning
+- Recent activity
+
+---
+
+## Learning Plans
+
+Stores
+
+- Topics
+- Question lists
+- Progress
+- Completion status
+
+---
+
+## Questions
+
+Each question contains
+
+- Metadata
+- Notes
+- Attempts
+- Status
+- AI discussions
+
+---
+
+## AI Mentor
+
+Supports
+
+- Hints
+- Debugging
+- Complexity analysis
+- Dry runs
+- Concept explanations
+- Similar question recommendations
+
+---
+
+## Notes
+
+Allows users to save
+
+- Personal notes
+- Key insights
+- Mistakes
+- Revision notes
+
+---
+
+## Progress
+
+Tracks
+
+- Questions solved
+- Questions attempted
+- Topic completion
+- Learning streak
+- Overall roadmap progress
+
+---
+
+# 8. Development Order
+
+The project should be developed in the following order.
+
+1. Authentication
+
+2. Database Setup
+
+3. Backend Foundation
+
+4. Frontend Foundation
+
+5. Dashboard
+
+6. Learning Plans
+
+7. Questions Module
+
+8. AI Mentor
+
+9. Notes
+
+10. Progress Tracking
+
+11. Testing
+
+12. Deployment
+
+Each stage must be completed before the next begins.
+
+---
+
+# 9. Development Rules
+
+The following rules apply throughout development.
+
+- Never duplicate business logic.
+- Keep components reusable.
+- Keep APIs RESTful.
+- Validate all user input.
+- Store important user actions permanently.
+- AI should never decide business rules.
+- Every feature should be independently testable.
+- Avoid premature optimization.
+
+---
+
+# 10. Future Expansion
+
+The architecture should support future additions without major restructuring.
+
+Examples include:
+
+- Contest Tracker
+- Interview Mode
+- Flashcards
+- Spaced Repetition
+- AI Mock Interviews
+- Collaborative Learning
+- Mobile Application
+
+These features are intentionally excluded from the MVP but should fit naturally into the existing architecture.
+
+---
+
+# End of System Design Document
