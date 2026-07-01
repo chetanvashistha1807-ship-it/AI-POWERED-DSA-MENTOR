@@ -1,11 +1,54 @@
 "use client";
 
 import { AppShell } from "@/components/AppShell";
-import { useLearningStore } from "@/lib/use-learning-store";
 import { Bot, CheckCircle2, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+
+type OverviewProblem = {
+  id: string;
+  title: string;
+  topic: string;
+  difficulty: string;
+  status: string;
+};
+
+type OverviewNote = {
+  id: string;
+};
+
+type Overview = {
+  profile: {
+    name: string;
+  };
+  problems: OverviewProblem[];
+  notes: OverviewNote[];
+};
 
 export default function DashboardPage() {
-  const { problems, notes } = useLearningStore();
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadOverview() {
+      try {
+        const response = await fetch("/api/overview");
+
+        if (!response.ok) {
+          throw new Error("Failed to load overview");
+        }
+
+        const data = await response.json();
+        setOverview(data);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadOverview();
+  }, []);
+
+  const problems = overview?.problems ?? [];
+  const notes = overview?.notes ?? [];
 
   const solvedCount = problems.filter((problem) => problem.status === "Solved").length;
   const inProgressCount = problems.filter(
@@ -36,17 +79,21 @@ export default function DashboardPage() {
   const tasks = [
     "Review one weak topic",
     "Solve one recommended problem",
-    "Add notes for today&apos;s mistake",
+    "Add notes for today's mistake",
     "Ask AI Mentor for a hint before reading solution"
   ];
 
   return (
     <AppShell>
       <header className="mb-6 rounded-lg border border-slate-800 bg-[#101a2d] p-5">
-        <p className="text-sm text-indigo-300">Welcome back, Chetan</p>
+        <p className="text-sm text-indigo-300">
+          Welcome back, {overview?.profile.name ?? "Learner"}
+        </p>
         <h2 className="mt-1 text-3xl font-bold">Today&apos;s DSA plan</h2>
         <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Your dashboard now reads from your saved problems and notes.
+          {isLoading
+            ? "Loading your saved learning data..."
+            : "Your dashboard now reads from PostgreSQL."}
         </p>
       </header>
 
@@ -84,8 +131,7 @@ export default function DashboardPage() {
               <>
                 <h4 className="mt-1 text-2xl font-bold">Pick a weak topic</h4>
                 <p className="mt-3 text-sm leading-6 text-slate-300">
-                  You do not have a recommended problem right now. Mark a problem
-                  as Recommended from the Problems page.
+                  Mark a problem as Recommended from the Problems page to see it here.
                 </p>
               </>
             )}
@@ -131,7 +177,7 @@ export default function DashboardPage() {
           <h3 className="text-xl font-semibold">Recent problems</h3>
           <div className="flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-400">
             <Search size={16} />
-            Saved locally
+            Saved in database
           </div>
         </div>
 
@@ -143,7 +189,7 @@ export default function DashboardPage() {
             >
               <p className="font-semibold">{problem.title}</p>
               <p className="mt-1 text-sm text-slate-400">
-                {problem.topic} · {problem.difficulty} · {problem.status}
+                {problem.topic} - {problem.difficulty} - {problem.status}
               </p>
             </div>
           ))}
