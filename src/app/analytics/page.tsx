@@ -1,26 +1,66 @@
 "use client";
 
 import { AppShell } from "@/components/AppShell";
-import { useLearningStore } from "@/lib/use-learning-store";
 import { BarChart3, Flame, Target, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
 
-function getDifficultyCount(
-  problems: { difficulty: string; status: string }[],
-  difficulty: string
-) {
+type AnalyticsProblem = {
+  id: string;
+  topic: string;
+  difficulty: string;
+  status: string;
+};
+
+type AnalyticsNote = {
+  id: string;
+};
+
+type Overview = {
+  problems: AnalyticsProblem[];
+  notes: AnalyticsNote[];
+};
+
+function getDifficultyCount(problems: AnalyticsProblem[], difficulty: string) {
   return problems.filter((problem) => problem.difficulty === difficulty).length;
 }
 
 export default function AnalyticsPage() {
-  const { problems, notes } = useLearningStore();
+  const [overview, setOverview] = useState<Overview>({
+    problems: [],
+    notes: []
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadOverview() {
+      try {
+        const response = await fetch("/api/overview");
+
+        if (!response.ok) {
+          throw new Error("Failed to load overview");
+        }
+
+        const data = await response.json();
+        setOverview({
+          problems: data.problems,
+          notes: data.notes
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadOverview();
+  }, []);
+
+  const { problems, notes } = overview;
 
   const solved = problems.filter((problem) => problem.status === "Solved").length;
   const attempted = problems.filter(
     (problem) => problem.status === "In Progress" || problem.status === "Solved"
   ).length;
 
-  const accuracy =
-    attempted === 0 ? 0 : Math.round((solved / attempted) * 100);
+  const accuracy = attempted === 0 ? 0 : Math.round((solved / attempted) * 100);
 
   const topicMap = new Map<string, { total: number; solved: number }>();
 
@@ -60,7 +100,9 @@ export default function AnalyticsPage() {
         <p className="text-sm text-indigo-300">Analytics</p>
         <h2 className="mt-1 text-3xl font-bold">Progress and weak topics</h2>
         <p className="mt-2 text-sm text-slate-400">
-          These numbers are calculated from your saved problems and notes.
+          {isLoading
+            ? "Loading analytics from database..."
+            : "These numbers are calculated from database-backed problems and notes."}
         </p>
       </header>
 
@@ -94,7 +136,7 @@ export default function AnalyticsPage() {
                 >
                   <span>{item.topic}</span>
                   <span className="text-sm text-slate-400">
-                    Priority {index + 1} · {item.progress}%
+                    Priority {index + 1} - {item.progress}%
                   </span>
                 </div>
               ))

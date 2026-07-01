@@ -1,38 +1,110 @@
 "use client";
 
 import { AppShell } from "@/components/AppShell";
-import { useLearningStore } from "@/lib/use-learning-store";
 import { Save, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+type Profile = {
+  name: string;
+  goal: string;
+  skillLevel: string;
+  dailyGoal: string;
+  preferredLanguage: string;
+};
+
+const fallbackProfile: Profile = {
+  name: "DSA Learner",
+  goal: "Placement preparation",
+  skillLevel: "Beginner",
+  dailyGoal: "3 problems",
+  preferredLanguage: "C++ / Java / Python"
+};
 
 export default function ProfilePage() {
-  const { profile, updateProfile } = useLearningStore();
+  const [profile, setProfile] = useState<Profile>(fallbackProfile);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const [name, setName] = useState(profile.name);
-  const [goal, setGoal] = useState(profile.goal);
-  const [skillLevel, setSkillLevel] = useState(profile.skillLevel);
-  const [dailyGoal, setDailyGoal] = useState(profile.dailyGoal);
-  const [preferredLanguage, setPreferredLanguage] = useState(
-    profile.preferredLanguage
-  );
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const response = await fetch("/api/profile");
 
-  function handleSave() {
-    updateProfile({
-      name,
-      goal,
-      skillLevel,
-      dailyGoal,
-      preferredLanguage
-    });
+        if (!response.ok) {
+          throw new Error("Failed to load profile");
+        }
+
+        const data = await response.json();
+
+        setProfile({
+          name: data.name,
+          goal: data.goal,
+          skillLevel: data.skillLevel,
+          dailyGoal: data.dailyGoal,
+          preferredLanguage: data.preferredLanguage
+        });
+      } catch {
+        setMessage("Could not load profile yet.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadProfile();
+  }, []);
+
+  function updateField(field: keyof Profile, value: string) {
+    setProfile((current) => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  async function handleSave() {
+    setIsSaving(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(profile)
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save profile");
+      }
+
+      const data = await response.json();
+
+      setProfile({
+        name: data.name,
+        goal: data.goal,
+        skillLevel: data.skillLevel,
+        dailyGoal: data.dailyGoal,
+        preferredLanguage: data.preferredLanguage
+      });
+
+      setMessage("Profile saved to database.");
+    } catch {
+      setMessage("Could not save profile.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
     <AppShell>
       <header className="mb-6 rounded-lg border border-slate-800 bg-[#101a2d] p-5">
         <p className="text-sm text-indigo-300">Profile</p>
-        <h2 className="mt-1 text-3xl font-bold">{profile.name}&apos;s learning profile</h2>
+        <h2 className="mt-1 text-3xl font-bold">
+          {profile.name}&apos;s learning profile
+        </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Your goals help the mentor recommend the right topics and problems.
+          This profile is now saved in PostgreSQL for your logged-in account.
         </p>
       </header>
 
@@ -43,7 +115,9 @@ export default function ProfilePage() {
           </div>
           <div>
             <h3 className="text-xl font-semibold">{profile.name}</h3>
-            <p className="text-sm text-slate-400">{profile.goal}</p>
+            <p className="text-sm text-slate-400">
+              {isLoading ? "Loading profile..." : profile.goal}
+            </p>
           </div>
         </div>
 
@@ -52,8 +126,8 @@ export default function ProfilePage() {
             <span className="text-sm text-slate-400">Name</span>
             <input
               className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
+              value={profile.name}
+              onChange={(event) => updateField("name", event.target.value)}
             />
           </label>
 
@@ -61,8 +135,8 @@ export default function ProfilePage() {
             <span className="text-sm text-slate-400">Goal</span>
             <input
               className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none"
-              value={goal}
-              onChange={(event) => setGoal(event.target.value)}
+              value={profile.goal}
+              onChange={(event) => updateField("goal", event.target.value)}
             />
           </label>
 
@@ -70,8 +144,8 @@ export default function ProfilePage() {
             <span className="text-sm text-slate-400">Skill level</span>
             <select
               className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none"
-              value={skillLevel}
-              onChange={(event) => setSkillLevel(event.target.value)}
+              value={profile.skillLevel}
+              onChange={(event) => updateField("skillLevel", event.target.value)}
             >
               <option>Beginner</option>
               <option>Intermediate</option>
@@ -83,8 +157,8 @@ export default function ProfilePage() {
             <span className="text-sm text-slate-400">Daily goal</span>
             <input
               className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none"
-              value={dailyGoal}
-              onChange={(event) => setDailyGoal(event.target.value)}
+              value={profile.dailyGoal}
+              onChange={(event) => updateField("dailyGoal", event.target.value)}
             />
           </label>
 
@@ -92,19 +166,26 @@ export default function ProfilePage() {
             <span className="text-sm text-slate-400">Preferred language</span>
             <input
               className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none"
-              value={preferredLanguage}
-              onChange={(event) => setPreferredLanguage(event.target.value)}
+              value={profile.preferredLanguage}
+              onChange={(event) =>
+                updateField("preferredLanguage", event.target.value)
+              }
             />
           </label>
         </div>
 
-        <button
-          className="mt-6 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-3 text-sm font-semibold text-white"
-          onClick={handleSave}
-        >
-          <Save size={18} />
-          Save profile
-        </button>
+        <div className="mt-6 flex items-center gap-4">
+          <button
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSaving}
+            onClick={handleSave}
+          >
+            <Save size={18} />
+            {isSaving ? "Saving..." : "Save profile"}
+          </button>
+
+          {message ? <p className="text-sm text-slate-400">{message}</p> : null}
+        </div>
       </section>
     </AppShell>
   );
