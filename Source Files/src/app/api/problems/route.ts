@@ -1,67 +1,93 @@
-import { getCurrentUserProfile } from "@/lib/auth/get-current-user";
-import { prisma } from "@/lib/prisma";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const profile = await getCurrentUserProfile();
+  try {
+    const { userId: clerkUserId } = await auth();
 
-  if (!profile) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  const problems = await prisma.problem.findMany({
-    where: {
-      userId: profile.id
-    },
-    orderBy: {
-      createdAt: "desc"
+    if (!clerkUserId) {
+      return NextResponse.json({ problems: [] });
     }
-  });
 
-  return NextResponse.json(problems);
+    const profile = await prisma.userProfile.findUnique({
+      where: {
+        clerkUserId
+      }
+    });
+
+    if (!profile) {
+      return NextResponse.json({ problems: [] });
+    }
+
+    const problems = await prisma.problem.findMany({
+      where: {
+        userId: profile.id
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    return NextResponse.json({ problems });
+  } catch {
+    return NextResponse.json(
+      { error: "Could not load problems." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {
-  const profile = await getCurrentUserProfile();
+  try {
+    const { userId: clerkUserId } = await auth();
 
-  if (!profile) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  const body = await request.json();
-
-  const problem = await prisma.problem.create({
-    data: {
-      userId: profile.id,
-      title: body.title,
-      topic: body.topic,
-      difficulty: body.difficulty,
-      status: body.status ?? "Not Started",
-      link: body.link || null
+    if (!clerkUserId) {
+      return NextResponse.json(
+        { error: "You must be signed in." },
+        { status: 401 }
+      );
     }
-  });
 
-  return NextResponse.json(problem, { status: 201 });
-}
+    const body = await request.json();
 
-export async function PATCH(request: Request) {
-  const profile = await getCurrentUserProfile();
-
-  if (!profile) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  const body = await request.json();
-
-  const problem = await prisma.problem.update({
-    where: {
-      id: body.id,
-      userId: profile.id
-    },
-    data: {
-      status: body.status
+    if (!body.title || !body.topic || !body.difficulty) {
+      return NextResponse.json(
+        { error: "Title, topic, and difficulty are required." },
+        { status: 400 }
+      );
     }
-  });
 
-  return NextResponse.json(problem);
+    const profile = await prisma.userProfile.findUnique({
+      where: {
+        clerkUserId
+      }
+    });
+
+    if (!profile) {
+      return NextResponse.json(
+        { error: "Profile not found. Please create your profile first." },
+        { status: 404 }
+      );
+    }
+
+    const problem = await prisma.problem.create({
+      data: {
+        userId: profile.id,
+        title: body.title,
+        topic: body.topic,
+        difficulty: body.difficulty,
+        status: body.status || "Recommended",
+        link: body.link || null,
+        isTodayGoal: Boolean(body.isTodayGoal)
+      }
+    });
+
+    return NextResponse.json({ problem });
+  } catch {
+    return NextResponse.json(
+      { error: "Could not add problem." },
+      { status: 500 }
+    );
+  }
 }

@@ -1,199 +1,311 @@
 "use client";
 
 import { AppShell } from "@/components/AppShell";
-import { Bot, CheckCircle2, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  BarChart3,
+  BookOpen,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  Target,
+  X
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-type OverviewProblem = {
+type Problem = {
   id: string;
   title: string;
   topic: string;
-  difficulty: string;
+  difficulty: "Easy" | "Medium" | "Hard";
   status: string;
-};
-
-type OverviewNote = {
-  id: string;
+  link?: string | null;
+  isTodayGoal?: boolean;
 };
 
 type Overview = {
   profile: {
     name: string;
-  };
-  problems: OverviewProblem[];
-  notes: OverviewNote[];
+    goal: string;
+    skillLevel: string;
+    dailyGoal: string;
+    preferredLanguage: string;
+  } | null;
+  problems: Problem[];
+  notes: unknown[];
+};
+
+const difficultyStyles = {
+  Easy: "bg-emerald-500/15 text-emerald-300",
+  Medium: "bg-amber-500/15 text-amber-300",
+  Hard: "bg-rose-500/15 text-rose-300"
 };
 
 export default function DashboardPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  async function loadOverview() {
+    const response = await fetch("/api/overview");
+    const data = await response.json();
+
+    setOverview(data);
+  }
 
   useEffect(() => {
-    async function loadOverview() {
-      try {
-        const response = await fetch("/api/overview");
-
-        if (!response.ok) {
-          throw new Error("Failed to load overview");
-        }
-
-        const data = await response.json();
-        setOverview(data);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
     loadOverview();
   }, []);
 
-  const problems = overview?.problems ?? [];
-  const notes = overview?.notes ?? [];
+  const problems = overview?.problems || [];
+  const todayGoals = useMemo(
+    () => problems.filter((problem) => problem.isTodayGoal),
+    [problems]
+  );
 
   const solvedCount = problems.filter((problem) => problem.status === "Solved").length;
   const inProgressCount = problems.filter(
     (problem) => problem.status === "In Progress"
   ).length;
-  const recommendedProblems = problems.filter(
-    (problem) => problem.status === "Recommended"
-  );
-  const totalProblems = problems.length;
-  const progress =
-    totalProblems === 0 ? 0 : Math.round((solvedCount / totalProblems) * 100);
+  const todaySolvedCount = todayGoals.filter(
+    (problem) => problem.status === "Solved"
+  ).length;
 
-  const weakTopics = Array.from(
-    new Set(
-      problems
-        .filter((problem) => problem.status !== "Solved")
-        .map((problem) => problem.topic)
-    )
-  ).slice(0, 3);
+  const todayProgress =
+    todayGoals.length > 0
+      ? Math.round((todaySolvedCount / todayGoals.length) * 100)
+      : 0;
 
-  const stats = [
-    { label: "Problems solved", value: `${solvedCount}` },
-    { label: "In progress", value: `${inProgressCount}` },
-    { label: "Roadmap progress", value: `${progress}%` },
-    { label: "Saved notes", value: `${notes.length}` }
-  ];
+  async function updateProblem(
+    id: string,
+    data: {
+      status?: string;
+      isTodayGoal?: boolean;
+    }
+  ) {
+    setMessage("");
 
-  const tasks = [
-    "Review one weak topic",
-    "Solve one recommended problem",
-    "Add notes for today's mistake",
-    "Ask AI Mentor for a hint before reading solution"
-  ];
+    try {
+      const response = await fetch(`/api/problems/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not update problem.");
+      }
+
+      await loadOverview();
+      setMessage("Updated.");
+    } catch {
+      setMessage("Could not update problem.");
+    }
+  }
 
   return (
     <AppShell>
       <header className="mb-6 rounded-lg border border-slate-800 bg-[#101a2d] p-5">
-        <p className="text-sm text-indigo-300">
-          Welcome back, {overview?.profile.name ?? "Learner"}
-        </p>
-        <h2 className="mt-1 text-3xl font-bold">Today&apos;s DSA plan</h2>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          {isLoading
-            ? "Loading your saved learning data..."
-            : "Your dashboard now reads from PostgreSQL."}
+        <p className="text-sm text-indigo-300">Dashboard</p>
+        <h2 className="mt-1 text-3xl font-bold">
+          Welcome back{overview?.profile?.name ? `, ${overview.profile.name}` : ""}
+        </h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Track today&apos;s target, current progress, and your DSA practice rhythm.
         </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <article
-            className="rounded-lg border border-slate-800 bg-[#101a2d] p-4"
-            key={stat.label}
-          >
-            <p className="text-2xl font-bold">{stat.value}</p>
-            <p className="mt-1 text-sm text-slate-400">{stat.label}</p>
-          </article>
-        ))}
-      </div>
+      <section className="mb-6 grid gap-4 md:grid-cols-4">
+        <article className="rounded-lg border border-slate-800 bg-[#101a2d] p-5">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-indigo-600/20 text-indigo-300">
+            <BookOpen size={20} />
+          </div>
+          <p className="text-sm text-slate-400">Total problems</p>
+          <p className="mt-1 text-3xl font-bold">{problems.length}</p>
+        </article>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-lg border border-slate-800 bg-[#101a2d] p-5">
-          <h3 className="text-xl font-semibold">Daily recommendation</h3>
+        <article className="rounded-lg border border-slate-800 bg-[#101a2d] p-5">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-emerald-600/20 text-emerald-300">
+            <CheckCircle2 size={20} />
+          </div>
+          <p className="text-sm text-slate-400">Solved</p>
+          <p className="mt-1 text-3xl font-bold">{solvedCount}</p>
+        </article>
 
-          <div className="mt-4 rounded-lg border border-slate-800 bg-[#16243a] p-4">
-            <p className="text-sm text-slate-400">Recommended problem</p>
+        <article className="rounded-lg border border-slate-800 bg-[#101a2d] p-5">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-amber-600/20 text-amber-300">
+            <Clock3 size={20} />
+          </div>
+          <p className="text-sm text-slate-400">In progress</p>
+          <p className="mt-1 text-3xl font-bold">{inProgressCount}</p>
+        </article>
 
-            {recommendedProblems[0] ? (
-              <>
-                <h4 className="mt-1 text-2xl font-bold">
-                  {recommendedProblems[0].title}
-                </h4>
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  Topic: {recommendedProblems[0].topic}. Difficulty:{" "}
-                  {recommendedProblems[0].difficulty}. This problem is marked as
-                  recommended and has not been solved yet.
-                </p>
-              </>
-            ) : (
-              <>
-                <h4 className="mt-1 text-2xl font-bold">Pick a weak topic</h4>
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  Mark a problem as Recommended from the Problems page to see it here.
-                </p>
-              </>
-            )}
+        <article className="rounded-lg border border-slate-800 bg-[#101a2d] p-5">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-violet-600/20 text-violet-300">
+            <Target size={20} />
+          </div>
+          <p className="text-sm text-slate-400">Today&apos;s goal</p>
+          <p className="mt-1 text-3xl font-bold">
+            {todaySolvedCount}/{todayGoals.length}
+          </p>
+        </article>
+      </section>
+
+      <section className="mb-6 rounded-lg border border-slate-800 bg-[#101a2d] p-5">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm text-indigo-300">Today&apos;s Goal</p>
+            <h3 className="mt-1 text-2xl font-bold">Daily target list</h3>
           </div>
 
-          <div className="mt-5 space-y-3">
-            {tasks.map((task) => (
-              <div
-                className="flex items-center gap-3 rounded-md border border-slate-800 px-3 py-3 text-sm text-slate-300"
-                key={task}
+          <div className="text-sm text-slate-400">
+            {todaySolvedCount} of {todayGoals.length} completed
+          </div>
+        </div>
+
+        <div className="mb-5 h-2 overflow-hidden rounded-full bg-slate-900">
+          <div
+            className="h-full rounded-full bg-indigo-500"
+            style={{ width: `${todayProgress}%` }}
+          />
+        </div>
+
+        {message ? <p className="mb-4 text-sm text-slate-400">{message}</p> : null}
+
+        {todayGoals.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-700 bg-slate-950 p-5 text-sm text-slate-400">
+            No problems added to today&apos;s goal yet. Add one from Problems or AI suggestions.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {todayGoals.map((problem) => (
+              <article
+                className="rounded-lg border border-slate-800 bg-slate-950 p-4"
+                key={problem.id}
               >
-                <CheckCircle2 size={18} className="text-emerald-400" />
-                {task}
-              </div>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="font-semibold">{problem.title}</h4>
+
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                          difficultyStyles[problem.difficulty]
+                        }`}
+                      >
+                        {problem.difficulty}
+                      </span>
+
+                      <span className="rounded-full bg-slate-800 px-2 py-1 text-xs text-slate-300">
+                        {problem.status}
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-sm text-slate-400">{problem.topic}</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {problem.link ? (
+                      <a
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                        href={problem.link}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        <ExternalLink size={15} />
+                        Open
+                      </a>
+                    ) : null}
+
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                      onClick={() =>
+                        updateProblem(problem.id, {
+                          status: "Solved"
+                        })
+                      }
+                    >
+                      <CheckCircle2 size={15} />
+                      Mark solved
+                    </button>
+
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                      onClick={() =>
+                        updateProblem(problem.id, {
+                          isTodayGoal: false
+                        })
+                      }
+                    >
+                      <X size={15} />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </article>
             ))}
           </div>
-        </section>
+        )}
+      </section>
 
-        <section className="rounded-lg border border-slate-800 bg-[#101a2d] p-5">
-          <div className="mb-4 flex items-center gap-3">
-            <Bot className="text-indigo-300" />
-            <h3 className="text-xl font-semibold">AI Mentor memory</h3>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <article className="rounded-lg border border-slate-800 bg-[#101a2d] p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <BarChart3 className="text-indigo-300" size={20} />
+            <h3 className="text-xl font-semibold">Profile focus</h3>
           </div>
 
-          {[
-            `Solved problems: ${solvedCount}`,
-            `Saved notes: ${notes.length}`,
-            `Weak topics: ${weakTopics.length ? weakTopics.join(", ") : "None yet"}`,
-            "Solved questions are excluded from recommendations"
-          ].map((item) => (
-            <p
-              className="mb-3 rounded-md bg-slate-900/60 px-3 py-3 text-sm text-slate-300"
-              key={item}
-            >
-              {item}
+          <div className="space-y-3 text-sm text-slate-300">
+            <p>
+              <span className="text-slate-500">Goal:</span>{" "}
+              {overview?.profile?.goal || "Not set"}
             </p>
-          ))}
-        </section>
-      </div>
-
-      <section className="mt-6 rounded-lg border border-slate-800 bg-[#101a2d] p-5">
-        <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-xl font-semibold">Recent problems</h3>
-          <div className="flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-400">
-            <Search size={16} />
-            Saved in database
+            <p>
+              <span className="text-slate-500">Skill level:</span>{" "}
+              {overview?.profile?.skillLevel || "Not set"}
+            </p>
+            <p>
+              <span className="text-slate-500">Daily target:</span>{" "}
+              {overview?.profile?.dailyGoal || "Not set"}
+            </p>
+            <p>
+              <span className="text-slate-500">Language:</span>{" "}
+              {overview?.profile?.preferredLanguage || "Not set"}
+            </p>
           </div>
-        </div>
+        </article>
 
-        <div className="grid gap-3">
-          {problems.slice(0, 3).map((problem) => (
-            <div
-              className="rounded-md border border-slate-800 p-4"
-              key={problem.id}
-            >
-              <p className="font-semibold">{problem.title}</p>
-              <p className="mt-1 text-sm text-slate-400">
-                {problem.topic} - {problem.difficulty} - {problem.status}
-              </p>
+        <article className="rounded-lg border border-slate-800 bg-[#101a2d] p-5">
+          <h3 className="mb-3 text-xl font-semibold">Recent problems</h3>
+
+          {problems.length === 0 ? (
+            <p className="text-sm text-slate-400">No problems added yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {problems.slice(0, 5).map((problem) => (
+                <div
+                  className="flex items-center justify-between gap-3 rounded-lg bg-slate-950 p-3"
+                  key={problem.id}
+                >
+                  <div>
+                    <p className="font-medium">{problem.title}</p>
+                    <p className="text-sm text-slate-400">
+                      {problem.topic} · {problem.status}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      difficultyStyles[problem.difficulty]
+                    }`}
+                  >
+                    {problem.difficulty}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </article>
       </section>
     </AppShell>
   );

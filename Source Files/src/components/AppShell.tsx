@@ -18,6 +18,7 @@ import {
 
 const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Problem Catalog", href: "/catalog", icon: BookOpen },
   { label: "Learning Roadmap", href: "/roadmap", icon: Route },
   { label: "Problems", href: "/problems", icon: BookOpen },
   { label: "AI Mentor", href: "/mentor", icon: Bot },

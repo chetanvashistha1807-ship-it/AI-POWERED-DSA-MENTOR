@@ -32,10 +32,23 @@ model Problem {
   difficulty  String
   status      String
   link        String?
+  isTodayGoal Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProblemCatalog {
+  id          String   @id @default(cuid())
+  title       String
+  topic       String
+  difficulty  String
+  leetcodeUrl String   @unique
+  pattern     String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Note {
